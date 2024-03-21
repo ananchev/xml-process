@@ -1,3 +1,3 @@
-module github.com/ananchev/wol-mqtt
+github.com/ananchev/xml-process
 
 go 1.19
