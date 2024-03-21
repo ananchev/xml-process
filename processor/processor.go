@@ -11,8 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ananchev/xml-process/internal/logger"
-	"github.com/ananchev/xml-process/internal/processor"
+	"github.com/ananchev/processxml"
 )
 
 type Parts struct {
@@ -49,23 +48,23 @@ type Document struct {
 	DOC_REL_TMP   string   `xml:"DOC_REL_TMP"`
 }
 
-func Tranform(input string) {
+func TransformXML(input string) {
 
 	// Stand-in for other io.Readers like a file
 	xmlFile, err := os.Open(input)
 
-	logger.Info("Running transformation for file '{f}'", "f", input)
+	processxml.LogInfo("Running transformation for file '{f}'", "f", input)
 	if err != nil {
-		logger.Error("Error opening XML file: {e}", "e", err)
+		processxml.LogError("Error opening XML file: {e}", "e", err)
 		return
 	}
 	defer xmlFile.Close()
 
 	var buf bytes.Buffer
 
-	utf_reader := processor.NewValidUTF8Reader()
+	utf_reader := NewValidUTF8Reader(xmlFile)
 
-	decoder := xml.NewDecoder(utf_reader(xmlFile))
+	decoder := xml.NewDecoder(utf_reader)
 	decoder.CharsetReader = identReader
 	encoder := xml.NewEncoder(&buf)
 	encoder.Indent("", "    ")
@@ -76,10 +75,10 @@ func Tranform(input string) {
 
 		// If we are at the end of the file, we are done
 		if err == io.EOF {
-			logger.Info("Reached the end the file")
+			processxml.LogInfo("Reached the end the file")
 			break
 		} else if err != nil {
-			logger.Error("Error decoding token: {e}", "e", err)
+			processxml.LogError("Error decoding token: {e}", "e", err)
 			break
 		} else if t == nil {
 			break
@@ -97,23 +96,23 @@ func Tranform(input string) {
 				var p Part
 				// We decode the documents elements into our data model...
 				if err = decoder.DecodeElement(&p, &se); err != nil {
-					logger.Error("Error decoding item: {e}", "e", err)
+					processxml.LogError("Error decoding item: {e}", "e", err)
 					return
 				}
 
 				// // And use it for whatever we want to
-				// log.Printf("Document Name: '%s' with Id: %s", d.DocumentName, d.DocumentlD)
-				logger.Info("Processing part '{p}/{r}'", "p", p.Id, "r", p.Revision)
+				// processxml.LogInfo.Printf("Document Name: '%s' with Id: %s", d.DocumentName, d.DocumentlD)
+				processxml.LogInfo("Processing part '{p}/{r}'", "p", p.Id, "r", p.Revision)
 				for i, document := range p.Documents {
 					r, dl := document.hasMoreThanOneDataset()
 					if r {
-						logger.Info("Extracted all document link elements")
+						processxml.LogInfo("Extracted all document link elements")
 
-						logger.Info("Deleting the Document element....")
+						processxml.LogInfo("Deleting the Document element....")
 						p.Documents = slices.Delete(p.Documents, i, i+1)
 
 						for docLink, docURL := range dl {
-							//log.Println(element)
+							//processxml.LogInfo.Println(element)
 							e1 := Document{
 								DocumentlD:    document.DocumentlD,
 								DocumentRev:   document.DocumentRev,
@@ -123,19 +122,19 @@ func Tranform(input string) {
 								DOC_REL_TMP:   document.DOC_REL_TMP,
 							}
 							p.Documents = append(p.Documents, e1)
-							logger.Info("Appended new document element for document link {l}", "l", docLink)
+							processxml.LogInfo("Appended new document element for document link {l}", "l", docLink)
 						}
 					}
 				}
 				if err = encoder.EncodeElement(p, se); err != nil {
-					logger.Info("Error encoding the modified part element for '{p}/{r}': {e}", "p", p.Id, "r", p.Revision, "e", err)
+					processxml.LogInfo("Error encoding the modified part element for '{p}/{r}': {e}", "p", p.Id, "r", p.Revision, "e", err)
 					return
 				}
 				continue
 			}
 		}
 		if err := encoder.EncodeToken(xml.CopyToken(t)); err != nil {
-			logger.Info("Error encoding the complete XML token: {e}", "e", err)
+			processxml.LogInfo("Error encoding the complete XML token: {e}", "e", err)
 			return
 		}
 
@@ -143,7 +142,7 @@ func Tranform(input string) {
 
 	// must call flush, otherwise some elements will be missing
 	if err := encoder.Flush(); err != nil {
-		logger.Info("Error while flushing the buffered XML to the underlying writer: {e}", "e", err)
+		processxml.LogInfo("Error while flushing the buffered XML to the underlying writer: {e}", "e", err)
 		return
 	}
 
@@ -153,7 +152,7 @@ func Tranform(input string) {
 	tmp_file := file_no_ext + "_tmp.xml"
 	f, err := os.Create(tmp_file)
 	if err != nil {
-		logger.Info("Error creating temporary XML file '{t}': {e}", "t", tmp_file, "e", err)
+		processxml.LogInfo("Error creating temporary XML file '{t}': {e}", "t", tmp_file, "e", err)
 		return
 	}
 
@@ -161,41 +160,41 @@ func Tranform(input string) {
 	w := bufio.NewWriter(f)
 	n4, err := w.WriteString(buf.String())
 	if err != nil {
-		logger.Info("Error writing to temporary XML file '{t}': {e}", "t", tmp_file, "e", err)
+		processxml.LogInfo("Error writing to temporary XML file '{t}': {e}", "t", tmp_file, "e", err)
 		return
 	}
-	logger.Info("Wrote {d} bytes into temporary XML file '{t}'", "d", strconv.Itoa(n4), "t", tmp_file)
+	processxml.LogInfo("Wrote {d} bytes into temporary XML file '{t}'", "d", strconv.Itoa(n4), "t", tmp_file)
 
 	// remove the original file
 	r := os.Remove(input)
 	if r != nil {
-		logger.Info("Error removing the orginal XML file '{i}': {e}", "i", input, "e", err)
+		processxml.LogInfo("Error removing the orginal XML file '{i}': {e}", "i", input, "e", err)
 		return
 	}
-	logger.Info("Removed the orginal XML file '{i}'.", "i", input)
+	processxml.LogInfo("Removed the orginal XML file '{i}'.", "i", input)
 
 	// rename the temp file to the original
 	n := os.Rename(tmp_file, input)
 	if n != nil {
-		logger.Info("Error renaming the temporary XML file '{i}': {e}", "i", tmp_file, "e", err)
+		processxml.LogInfo("Error renaming the temporary XML file '{i}': {e}", "i", tmp_file, "e", err)
 		return
 	}
-	logger.Info("Renamed the temporary XML file '{i}' to '{i1}'.", "i", tmp_file, "i1", input)
-	logger.Info("Finished processing '{i1}'.", "i1", input)
+	processxml.LogInfo("Renamed the temporary XML file '{i}' to '{i1}'.", "i", tmp_file, "i1", input)
+	processxml.LogInfo("Finished processing '{i1}'.", "i1", input)
 
 }
 
 func (d Document) hasMoreThanOneDataset() (res bool, datasets map[string]string) {
 
 	if len(d.DocumentLinks) <= 1 {
-		logger.Info("Document '{d}/{r}' does not have multiple DocumentLink elements", "d", d.DocumentlD, "r", d.DocumentRev)
+		processxml.LogInfo("Document '{d}/{r}' does not have multiple DocumentLink elements", "d", d.DocumentlD, "r", d.DocumentRev)
 		return false, nil
 	}
 
 	ret := make(map[string]string)
-	logger.Info("Found '{n}' documentLink elements for '{d}/{r}'.", "n", strconv.Itoa(len(d.DocumentLinks)), "d", d.DocumentlD, "r", d.DocumentRev)
+	processxml.LogInfo("Found '{n}' documentLink elements for '{d}/{r}'.", "n", strconv.Itoa(len(d.DocumentLinks)), "d", d.DocumentlD, "r", d.DocumentRev)
 	for i := range d.DocumentLinks {
-		logger.Info("...storing document link '{l1}' with doc_url_tmp '{l2}'", "l1", d.DocumentLinks[i], "l2", d.DOC_URL_TMP[i])
+		processxml.LogInfo("...storing document link '{l1}' with doc_url_tmp '{l2}'", "l1", d.DocumentLinks[i], "l2", d.DOC_URL_TMP[i])
 		ret[d.DocumentLinks[i]] = d.DOC_URL_TMP[i]
 	}
 	return true, ret

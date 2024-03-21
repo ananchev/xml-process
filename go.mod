@@ -1,3 +1,3 @@
-module github.com/ananchev/xml-process
+module github.com/ananchev/processxml
 
 go 1.19
