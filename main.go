@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ananchev/xml-process/processor"
+	"github.com/ananchev/processxml/processor"
 )
 
 // Args command-line parameters
