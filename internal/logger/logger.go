@@ -20,13 +20,15 @@ var (
 func InitLogger(logfile string) {
 	var multi_writer io.Writer
 	if logfile == "" {
+		multi_writer = io.Discard
+	} else if logfile == "stdout" {
 		multi_writer = io.MultiWriter(os.Stdout)
 	} else {
 		file, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
 			log.Fatal(err)
 		}
-		multi_writer = io.MultiWriter(os.Stdout, file)
+		multi_writer = io.MultiWriter(file)
 
 	}
 	InfoLogger = log.New(multi_writer, "INFO: ", log.Ldate|log.Ltime)
