@@ -1,4 +1,4 @@
-package logger
+package processor
 
 import (
 	"fmt"
@@ -13,23 +13,22 @@ var (
 	ErrorLogger *log.Logger
 )
 
-func InitLogger(loggingOption string) {
+func InitLogger(logfile string) {
 	var writer io.Writer
-
-	if loggingOption == "" {
+	if logfile == "" {
 		writer = io.Discard
-	} else if loggingOption == "stdout" {
+	} else if logfile == "stdout" {
 		writer = os.Stdout
 	} else {
-		f, err := os.OpenFile(loggingOption, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+		file, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
-		writer = f
-		defer f.Close()
+		writer = file
+
 	}
-	InfoLogger = log.New(writer, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(writer, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	InfoLogger = log.New(writer, "INFO: ", log.Ldate|log.Ltime)
+	ErrorLogger = log.New(writer, "ERROR: ", log.Ldate|log.Ltime)
 }
 
 func LogError(format string, args ...interface{}) {
@@ -41,6 +40,7 @@ func LogInfo(format string, args ...interface{}) {
 }
 
 func write_to_log(loggerType int, format string, args ...interface{}) {
+
 	log_msg := format_string(format, args...)
 	switch loggerType {
 	case 1:
