@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/ananchev/processxml/processor"
@@ -13,21 +14,36 @@ type Args struct {
 	logfile   string
 }
 
+var args Args
+
 func main() {
-	args := ProcessArgs()
-	//logger.InitLogger(args.loggingOption)
+
+	requiredFlags := []string{"xml"}
+
+	args.targetXML = *flag.String("xml", "", "Absolute filepath to the XML to process")
+	args.logfile = *flag.String("log", "", "Logging disabled if skipped. Allowed values stdout OR filepath")
+
+	flag.Parse()
+	suppliedFlags := make(map[string]bool)
+	flag.Visit(func(fl *flag.Flag) { suppliedFlags[fl.Name] = true })
+
+	for _, req := range requiredFlags {
+		if !suppliedFlags[req] {
+			fmt.Fprintf(os.Stderr, "Missing required -%s flag.\nRun %s -h for usage.\n", req, os.Args[0])
+			os.Exit(2) // the same exit code flag.Parse uses
+		}
+	}
+	flag.VisitAll(setArgs)
+
 	processor.TransformXML(args.logfile, args.targetXML)
 }
 
-func ProcessArgs() Args {
-	var a Args
+func setArgs(fl *flag.Flag) {
+	switch fl.Name {
+	case "xml":
+		args.targetXML = fl.Value.String()
 
-	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	f.StringVar(&a.targetXML, "xml", "", "Absolute filepath to the XML to process")
-	f.StringVar(&a.logfile, "log", "", "If empty no logging. Allowed values stdout OR log filepath")
-
-	f.Parse(os.Args[1:])
-
-	return a
-
+	case "log":
+		args.logfile = fl.Value.String()
+	}
 }
